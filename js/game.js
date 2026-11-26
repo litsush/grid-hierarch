@@ -2,7 +2,7 @@
 'use strict';
 
 const $ = id => document.getElementById(id);
-const DAY_LEN = 300, LAST_DAY = 14, SAVE = 'gridhierarch.v1', VW = 480, VH = 270;
+const DAY_LEN = 420, LAST_DAY = 14, SAVE = 'gridhierarch.v3', VW = 480, VH = 270;
 let S = null, mode = 'title', cv, ctx, lastT = 0, hudT = 0;
 const K = {};
 const R = { cars: [], dogs: [], parts: [], inRange: [], P: null, t: 0, mk: 0, hunterCd: 0, near: null };
@@ -29,14 +29,14 @@ function startGame(cont) {
   S = old || newState();
   const hs = City.lm.hotslice;
   R.P = { x: old ? S.px : hs.dx, y: old ? S.py : hs.dy - 4, vx: 0, vy: 0, latch: null, face: 1 };
-  R.cars = []; for (let i = 0; i < 48; i++) R.cars.push(mkCar());
+  R.cars = []; for (let i = 0; i < 460; i++) R.cars.push(mkCar());
   resetDogs(); R.parts = [];
   if (!old) ['intro1', 'intro2', 'intro3', 'intro4'].forEach(msg);
   $('screen').classList.add('hidden'); mode = 'play';
 }
 function resetDogs() {
   R.dogs = R.dogs.filter(d => d.hunter);
-  for (const zk in ZONES) if (S.locked[zk]) for (let i = 0; i < ZONES[zk].dogs; i++) R.dogs.push(mkDog(zk));
+  for (const zk in ZONES) if (S.locked[zk]) for (let i = 0; i < ZONES[zk].dogs * 4; i++) R.dogs.push(mkDog(zk));
 }
 
 // ---------- helpers used by the deck
@@ -136,9 +136,9 @@ function die() {
 }
 function newOrder() {
   const hs = City.lm.hotslice;
-  const pool = City.b.filter(b => (b.type === 'res' || b.type === 'biz') && !b.lm && !S.locked[b.zk] && Math.abs(b.dx - hs.dx) + Math.abs(b.dy - hs.dy) > 110 && !S.orders.some(o => o.b === b.id));
+  const pool = City.b.filter(b => (b.type === 'res' || b.type === 'biz') && !b.lm && !S.locked[b.zk] && Math.abs(b.dx - hs.dx) + Math.abs(b.dy - hs.dy) > 110 && Math.abs(b.dx - hs.dx) + Math.abs(b.dy - hs.dy) < 1900 && !S.orders.some(o => o.b === b.id));
   const b = pool[Math.floor(Math.random() * pool.length)], man = Math.abs(b.dx - hs.dx) + Math.abs(b.dy - hs.dy);
-  const t = man / 42 + 22;
+  const t = man / 50 + 22;
   S.orders.push({ b: b.id, t, max: t, pay: Math.round((18 + man / 22) * (b.zk === '1,1' ? 1 : 1.5)) });
 }
 function interact() {
@@ -301,12 +301,12 @@ function drawHud() {
   // minimap
   const mg = $('mini').getContext('2d'); mg.drawImage(City.mini, 0, 0);
   for (const zk in ZONES) if (S.locked[zk]) { const z = zoneRect(zk); mg.fillStyle = 'rgba(255,30,70,.2)'; mg.fillRect(z.x / 16, z.y / 16, z.w / 16, z.h / 16); }
-  mg.fillStyle = '#ff9f1c'; mg.fillRect(hs.dx / 16 - 1, hs.dy / 16 - 1, 3, 3);
-  for (const id in PICKUPS) if (S.pickups[id] === 1) { const b = City.lm[PICKUPS[id].lm]; mg.fillStyle = '#ffe680'; mg.fillRect(b.dx / 16 - 1, b.dy / 16 - 1, 2, 2); }
-  for (const id in HOSTS) { const H = HOSTS[id], b = City.lm[H.lm]; if (!b || H.kind !== 'wifi') continue; const st = S.hosts[id]; if (!(st.scanned || st.known || H.gate)) continue; mg.fillStyle = st.backdoor ? '#7dffb0' : '#4de2ff'; mg.fillRect((b.x + b.w / 2) / 16, (b.y + b.h / 2) / 16, 1, 1); }
-  for (const o of S.orders) { const b = City.b[o.b]; mg.fillStyle = '#ffc857'; mg.fillRect(b.dx / 16 - 1, b.dy / 16 - 1, 2, 2); }
-  for (const d of R.dogs) if (d.chase || d.hunter) { mg.fillStyle = '#ff3d6e'; mg.fillRect(d.x / 16, d.y / 16, 1, 1); }
-  mg.fillStyle = '#fff'; mg.fillRect(P.x / 16 - 1, P.y / 16 - 1, 2, 2);
+  mg.fillStyle = '#ff9f1c'; mg.fillRect(hs.dx / 16 - 1, hs.dy / 16 - 4, 9, 9);
+  for (const id in PICKUPS) if (S.pickups[id] === 1) { const b = City.lm[PICKUPS[id].lm]; mg.fillStyle = '#ffe680'; mg.fillRect(b.dx / 16 - 1, b.dy / 16 - 3, 6, 6); }
+  for (const id in HOSTS) { const H = HOSTS[id], b = City.lm[H.lm]; if (!b || H.kind !== 'wifi') continue; const st = S.hosts[id]; if (!(st.scanned || st.known || H.gate)) continue; mg.fillStyle = st.backdoor ? '#7dffb0' : '#4de2ff'; mg.fillRect((b.x + b.w / 2) / 16, (b.y + b.h / 2) / 16 - 1, 3, 3); }
+  for (const o of S.orders) { const b = City.b[o.b]; mg.fillStyle = '#ffc857'; mg.fillRect(b.dx / 16 - 1, b.dy / 16 - 3, 6, 6); }
+  for (const d of R.dogs) if (d.chase || d.hunter) { mg.fillStyle = '#ff3d6e'; mg.fillRect(d.x / 16, d.y / 16 - 1, 3, 3); }
+  mg.fillStyle = '#fff'; mg.fillRect(P.x / 16 - 1, P.y / 16 - 3, 6, 6);
 }
 
 // ---------- loop & input
@@ -340,7 +340,7 @@ addEventListener('resize', fit);
 addEventListener('beforeunload', () => { if (mode === 'play' || mode === 'deck') save(); });
 addEventListener('load', () => {
   cv = $('cv'); ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
-  genCity(); fit();
+  genCity(); fit(); $('mini').width = $('mini').height = WT;
   if (loadSave()) $('btn-cont').classList.remove('hidden');
   requestAnimationFrame(frame);
 });

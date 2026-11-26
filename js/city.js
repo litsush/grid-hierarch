@@ -1,12 +1,15 @@
 // GRID: HIERARCH — city generation, pre-rendered pixel map, traffic and K9 units.
 'use strict';
 
-const TILE = 16, PER = 10, NB = 9, WT = NB * PER + 2, WPX = WT * TILE;
+const TILE = 16, PER = 10, NB = 30, ZB = 10, WT = NB * PER + 2, WPX = WT * TILE;
 const DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]];
 const rc = k => (k * PER + 1) * TILE;                       // pixel centre of road k
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 function nearRoad(v) { return rc(clamp(Math.round((v / TILE - 1) / PER), 0, NB)); }
-const zoneIdx = v => v < rc(3) ? 0 : v < rc(6) ? 1 : 2;
+const zoneIdx = v => v < rc(ZB) ? 0 : v < rc(2 * ZB) ? 1 : 2;
+// landmarks are authored on a 3x3-per-zone grid; spread them over the real zone size
+const lmPos = v => Math.floor(v / 3) * ZB + [0, (ZB - 1) >> 1, ZB - 1][v % 3];
+const FILL_PAL = ['#c9a27a', '#9fb7c9', '#c98f8f', '#b9c48a', '#d9d2b0', '#a9a0c4'];
 const zoneKey = (x, y) => zoneIdx(x) + ',' + zoneIdx(y);
 function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
@@ -17,17 +20,18 @@ function genCity() {
   City.b = []; City.blocks = []; City.lm = {};
   const LMK = Object.keys(LM);
   for (let by = 0; by < NB; by++) for (let bx = 0; bx < NB; bx++) {
-    const zk = Math.floor(bx / 3) + ',' + Math.floor(by / 3), Z = ZONES[zk];
+    const zk = Math.floor(bx / ZB) + ',' + Math.floor(by / ZB), Z = ZONES[zk];
     const ax = (bx * PER + 3) * TILE, ay = (by * PER + 3) * TILE;
-    const lms = LMK.filter(k => LM[k].block[0] === bx && LM[k].block[1] === by);
+    const lms = LMK.filter(k => lmPos(LM[k].block[0]) === bx && lmPos(LM[k].block[1]) === by);
     const big = lms.find(k => typeof LM[k].lot === 'string');
-    let lay;
+    let lay, fill = false;
     if (big) lay = LM[big].lot; else if (lms.length) lay = 'A';
+    else if (!Z.res && rnd() < .5) { lay = 'A'; fill = true; }   // residential filler between the corporate blocks
     else { const r = rnd(), m = Z.mix; lay = r < m[0] ? 'A' : r < m[0] + m[1] ? 'B' : r < m[0] + m[1] + m[2] ? 'C' : 'P'; }
     const list = [];
     const add = (x, y, w, h, type, dx, dy, top, n, lmk) => {
       const b = { id: City.b.length, x, y, w, h, type, zk, dx, dy, top, lm: lmk || null, solid: type !== 'park',
-        col: Z.pal[Math.floor(rnd() * Z.pal.length)], seed: Math.floor(rnd() * 1e6),
+        col: (fill ? FILL_PAL : Z.pal)[Math.floor(rnd() * (fill ? FILL_PAL : Z.pal).length)], seed: Math.floor(rnd() * 1e6),
         addr: ((bx + 1) * 100 + 10 + n * 2) + ' ' + STS[top ? by : by + 1] };
       b.name = lmk ? LM[lmk].name : (type === 'res' ? 'Residence' : type === 'biz' ? 'Business' : type === 'corp' ? ZONES[zk].name + ' tower' : 'Park');
       if (lmk) City.lm[lmk] = b;
@@ -35,7 +39,7 @@ function genCity() {
     };
     if (lay === 'A') for (let i = 0; i < 4; i++) {
       const lx = ax + (i % 2) * 48, ly = ay + (i >> 1) * 48, top = i < 2, lmk = lms.find(k => LM[k].lot === i);
-      const type = lmk ? LM[lmk].type : (Z.res || rnd() < .5 ? 'res' : 'biz');
+      const type = lmk ? LM[lmk].type : (Z.res || fill || rnd() < .5 ? 'res' : 'biz');
       if (type === 'util') add(lx + 12, ly + 14, 24, 20, type, lx + 24, top ? ay - 6 : ay + 102, top, i, lmk);
       else add(lx + 3, ly + 3, 42, 42, type, lx + 24, top ? ay - 6 : ay + 102, top, i, lmk);
     } else if (lay === 'B') for (let i = 0; i < 2; i++) add(ax + 3, ay + i * 48 + 3, 90, 42, 'biz', ax + 48, i ? ay + 102 : ay - 6, !i, i);
@@ -63,7 +67,7 @@ function renderMap() {
     g.fillRect(p + 4, rc(k), 8, 1); g.fillRect(rc(k), p + 4, 1, 8);
   }
   for (let by = 0; by < NB; by++) for (let bx = 0; bx < NB; bx++) {
-    const Z = ZONES[Math.floor(bx / 3) + ',' + Math.floor(by / 3)];
+    const Z = ZONES[Math.floor(bx / ZB) + ',' + Math.floor(by / ZB)];
     const sx = (bx * PER + 2) * TILE, sy = (by * PER + 2) * TILE;
     g.fillStyle = '#343742'; g.fillRect(sx, sy, 128, 128);
     g.fillStyle = '#3d404c'; for (let i = 0; i < 128; i += 16) { g.fillRect(sx + i, sy, 1, 128); g.fillRect(sx, sy + i, 128, 1); }
@@ -72,7 +76,11 @@ function renderMap() {
   for (const b of City.b) drawBuilding(g, b);
   City.map = c;
   const m = document.createElement('canvas'); m.width = m.height = WT;
-  const mg = m.getContext('2d'); mg.imageSmoothingEnabled = true; mg.drawImage(c, 0, 0, WT, WT);
+  const mg = m.getContext('2d');
+  // flat schematic: one tint per district, roads as dark lines (a scaled-down city is unreadable at this size)
+  for (const zk in ZONES) { const z = zoneRect(zk); mg.fillStyle = shade(ZONES[zk].pal[0], .55); mg.fillRect(z.x / TILE - 1, z.y / TILE - 1, z.w / TILE + 2, z.h / TILE + 2); }
+  mg.fillStyle = '#14161c'; for (let k = 0; k <= NB; k++) { mg.fillRect(k * PER, 0, 2, WT); mg.fillRect(0, k * PER, WT, 2); }
+  mg.fillStyle = '#05060a'; for (const k of [ZB, 2 * ZB]) { mg.fillRect(k * PER - 1, 0, 4, WT); mg.fillRect(0, k * PER - 1, WT, 4); }
   City.mini = m;
 }
 
@@ -171,7 +179,7 @@ function mkCar() {
   const i = Math.floor(Math.random() * (NB + 1)), j = Math.floor(Math.random() * (NB + 1));
   const opts = [0, 1, 2, 3].filter(n => { const a = i + DIRS[n][0], b = j + DIRS[n][1]; return a >= 0 && a <= NB && b >= 0 && b <= NB; });
   const d = opts[Math.floor(Math.random() * opts.length)];
-  const r = Math.random(), T = CAR_TYPES[r < .1 ? 0 : r < .3 ? 1 : r < .65 ? 2 : r < .88 ? 3 : 4];
+  const r = Math.random(), T = CAR_TYPES[r < .08 ? 0 : r < .24 ? 1 : r < .52 ? 2 : r < .8 ? 3 : 4];
   const c = { d, ti: i + DIRS[d][0], tj: j + DIRS[d][1], x: rc(i) - DIRS[d][1] * 8, y: rc(j) + DIRS[d][0] * 8, sp: T.sp * (.9 + Math.random() * .2), w: T.w, col: T.col[Math.floor(Math.random() * T.col.length)] };
   carPlan(c);
   // start somewhere along the segment
@@ -206,11 +214,11 @@ function roadStep(e, tx, ty, sp, dt) {
 }
 function zoneRect(zk) {
   const [zx, zy] = zk.split(',').map(Number);
-  const a = z => z === 0 ? 0 : rc(z * 3) + 16, b = z => z === 2 ? WPX : rc(z * 3 + 3) - 16;
+  const a = z => z === 0 ? 0 : rc(z * ZB) + 16, b = z => z === 2 ? WPX : rc(z * ZB + ZB) - 16;
   return { x: a(zx), y: a(zy), w: b(zx) - a(zx), h: b(zy) - a(zy) };
 }
 function mkDog(zk) {
   const [zx, zy] = zk.split(',').map(Number);
-  const pick = z => rc(z * 3 + 1 + Math.floor(Math.random() * 2));
+  const pick = z => rc(z * ZB + 1 + Math.floor(Math.random() * (ZB - 1)));
   return { zk, x: pick(zx), y: pick(zy), tx: pick(zx), ty: pick(zy), chase: false, hunter: false, life: 0 };
 }

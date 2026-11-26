@@ -14,7 +14,8 @@ const ZONES = {
 };
 
 const AVES = ['Kessel Ave', 'Orchid Ave', 'Tallow Ave', 'Juniper Ave', 'Marrow Ave', 'Pylon Ave', 'Quince Ave', 'Sable Ave', 'Vesper Ave', 'Zinc Ave'];
-const STS = ['1st St', '2nd St', 'Halyard St', 'Ember St', 'Dough St', 'Crust St', 'Ash St', 'Birch St', 'Cinder St', 'Dock St'];
+// horizontal streets, north to south. Ash St is the Central/Greenmoor line; the Okafors live on Birch.
+const STS = Array.from({ length: 31 }, (_, i) => i === 20 ? 'Ash St' : i === 25 ? 'Birch St' : (i + 1) + (i % 10 === 0 && i !== 10 ? 'st' : i % 10 === 1 && i !== 11 ? 'nd' : i % 10 === 2 && i !== 12 ? 'rd' : 'th') + ' St');
 
 // Landmarks: block [bx,by]; lot 0-3 (quarter lot), 'C' (whole-block tower) or 'P' (park)
 const LM = {
