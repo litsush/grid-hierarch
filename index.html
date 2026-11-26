@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GRID: HIERARCH</title>
+<style>
+  :root { --bg:#0b0d12; --fg:#9fe8c5; --dim:#5d7a70; --bad:#ff3d6e; --amber:#ffc857; --cyan:#4de2ff; --ok:#7dffb0; --line:#1f3a34; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:#000; color:var(--fg); font-family:ui-monospace,"DejaVu Sans Mono",Menlo,Consolas,monospace; overflow:hidden; }
+  body { display:flex; align-items:center; justify-content:center; }
+  #wrap { position:relative; --s:2; font-size:clamp(11px,calc(var(--s)*4.6px),17px); }
+  #cv { width:100%; height:100%; image-rendering:pixelated; display:block; background:var(--bg); }
+  .hidden { display:none !important; }
+  .dim { color:var(--dim); } .bad { color:var(--bad); } .amber { color:var(--amber); } .cyan { color:var(--cyan); } .ok { color:var(--ok); }
+  /* HUD */
+  .hud { position:absolute; pointer-events:none; text-shadow:0 0 3px #000,1px 1px 0 #000; }
+  #h-top { left:1%; top:1%; background:rgba(8,10,14,.72); padding:.25em .6em; border:1px solid var(--line); }
+  #h-orders { left:1%; top:8%; background:rgba(8,10,14,.6); padding:.2em .6em; }
+  #h-loc { left:1%; bottom:1%; }
+  #h-ctx { left:0; right:40%; bottom:6%; text-align:center; }
+  #mini { position:absolute; right:1%; top:1%; width:19%; image-rendering:pixelated; border:1px solid var(--line); opacity:.92; }
+  #toasts { position:absolute; right:1%; bottom:2%; width:38%; display:flex; flex-direction:column; gap:.3em; pointer-events:none; z-index:30; }
+  .toast { background:rgba(8,10,14,.92); border-left:3px solid var(--amber); padding:.35em .6em; font-size:.85em; animation:in .2s; }
+  @keyframes in { from { transform:translateX(20px); opacity:0; } }
+  /* DECK */
+  #deck { position:absolute; inset:0; background:rgba(7,10,14,.96); display:flex; flex-direction:column; font-size:clamp(11px,calc(var(--s)*4.2px),15px); z-index:10; }
+  #tabs { display:flex; gap:.3em; align-items:center; padding:.4em; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  #tabs .sp { flex:1; } #tabs span { margin:0 .4em; }
+  #dbody { flex:1; overflow:auto; padding:.5em .8em; min-height:0; }
+  button { font:inherit; color:var(--fg); background:#10201c; border:1px solid var(--line); padding:.2em .6em; cursor:pointer; }
+  button:hover:not(:disabled) { background:#1a3a32; border-color:var(--fg); }
+  button:disabled { color:#3d4d48; cursor:default; }
+  .tab.on { background:var(--fg); color:#07110e; }
+  input[type=text],input:not([type]) { font:inherit; background:#05080b; color:var(--amber); border:1px solid var(--line); padding:.2em .4em; width:12em; }
+  h3 { margin:.8em 0 .3em; font-size:1em; color:var(--dim); border-bottom:1px dashed var(--line); font-weight:normal; letter-spacing:.1em; }
+  h3:first-child { margin-top:0; }
+  p { margin:.3em 0; }
+  .cols { display:flex; gap:1em; height:100%; min-height:0; }
+  .col { overflow:auto; min-width:0; } .col.L { width:32%; flex:none; } .col.L.wide { width:40%; } .col.R { flex:1; }
+  .row { display:flex; gap:.6em; align-items:center; padding:.15em .3em; flex-wrap:wrap; }
+  .row.host,.row.file { cursor:pointer; justify-content:space-between; }
+  .row.host:hover,.row.file:hover { background:#10201c; }
+  .row.host.on { outline:1px solid var(--cyan); }
+  .row span { font-size:.9em; }
+  .shead { display:flex; gap:.6em; align-items:baseline; flex-wrap:wrap; }
+  .badge { border:1px solid var(--bad); color:var(--bad); padding:0 .4em; } .badge.ok { border-color:var(--ok); color:var(--ok); }
+  .bar { position:relative; height:1.3em; background:#05080b; border:1px solid var(--line); margin:.3em 0; }
+  .bar i { position:absolute; left:0; top:0; bottom:0; background:var(--bad); } .bar i.g { background:var(--ok); }
+  .bar span { position:absolute; inset:0; text-align:center; color:#fff; font-size:.85em; mix-blend-mode:difference; }
+  .log { background:#05080b; padding:.3em .5em; min-height:5.5em; font-size:.9em; }
+  #viz { width:100%; max-width:560px; display:block; margin:.3em auto; border:1px solid var(--line); cursor:crosshair; }
+  .btns { display:flex; gap:.5em; align-items:center; flex-wrap:wrap; margin:.4em 0; }
+  .txt { border-left:2px solid var(--line); padding:.2em .6em; margin:.4em 0; font-size:.92em; }
+  .node { margin:.3em 0 .3em 1.2em; padding-left:.7em; border-left:1px solid var(--line); } .node.top { margin-left:0; }
+  .leaf { margin:.2em 0 .2em 1.2em; font-size:.92em; }
+  code { background:#10201c; color:var(--amber); padding:0 .3em; }
+  table.mk { border-collapse:collapse; width:100%; } table.mk td,table.mk th { padding:.15em .4em; text-align:left; } table.mk th { color:var(--dim); font-weight:normal; font-size:.85em; }
+  table.mk button { padding:0 .35em; margin-right:.15em; }
+  .botgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(21em,1fr)); gap:.6em; }
+  .bot { display:flex; gap:.6em; border:1px solid var(--line); padding:.4em; } .pips { color:var(--cyan); letter-spacing:.1em; }
+  .px { image-rendering:pixelated; width:100%; max-width:640px; }
+  #reader { position:absolute; inset:0; background:rgba(0,0,0,.7); z-index:20; display:flex; align-items:center; justify-content:center; font-size:clamp(11px,calc(var(--s)*4.2px),15px); }
+  .paper { background:#0d1116; border:1px solid var(--fg); padding:1em 1.4em; width:76%; max-height:88%; overflow:auto; }
+  .paper h2 { font-size:1.1em; color:var(--amber); margin:.5em 0; } pre { white-space:pre-wrap; font:inherit; color:#d5efe3; line-height:1.45; margin:.6em 0; }
+  /* SCREENS */
+  #screen { position:absolute; inset:0; background:rgba(5,7,10,.95); z-index:40; display:flex; align-items:center; justify-content:center; }
+  .card { width:78%; max-height:94%; overflow:auto; }
+  .card h1 { font-size:2.2em; letter-spacing:.25em; margin:0 0 .2em; color:var(--cyan); } .card h1 b { color:var(--bad); }
+  .card button { font-size:1.1em; padding:.4em 1.2em; margin:.6em .6em 0 0; }
+  .keys { display:grid; grid-template-columns:auto 1fr; gap:.15em 1em; margin:.6em 0; font-size:.92em; } .keys b { color:var(--amber); }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="cv" width="480" height="270"></canvas>
+  <div id="h-top" class="hud"></div>
+  <div id="h-orders" class="hud"></div>
+  <div id="h-loc" class="hud"></div>
+  <div id="h-ctx" class="hud"></div>
+  <canvas id="mini" width="92" height="92"></canvas>
+  <div id="toasts"></div>
+  <div id="deck" class="hidden"><div id="tabs"></div><div id="dbody"></div></div>
+  <div id="reader" class="hidden"></div>
+  <div id="screen"><div class="card">
+    <h1>GRID<b>:</b> HIERARCH</h1>
+    <p class="dim">You owe Mozza Logistics $212,400. They own the pizza place, your apartment, and — per contract — you. Hit the daily delivery quota or be liquidated.</p>
+    <p>The districts around Central are fenced off with robot dogs. Somebody doesn't want couriers seeing what's being built out there. You have rollerblades, a mag-grapple, a second-hand deck, and <span class="bad">14 days</span>.</p>
+    <div class="keys">
+      <b>WASD / arrows</b><span>skate · <b>SHIFT</b> brake</span>
+      <b>SPACE</b><span>latch onto a passing car — and release to whip ahead, faster than you can skate</span>
+      <b>E</b><span>load pizza at HOT SLICE, pick things up. Deliveries complete when you reach the door.</span>
+      <b>TAB</b><span>open the deck: hack what's in wifi range, read mail, trade stocks, build bots, buy parts</span>
+      <b>C</b><span>clock out early at HOT SLICE once quota is met</span>
+    </div>
+    <p class="dim">Passwords are always something the person loves. Read their mail. When you can't guess: grow a password tree, or send your bots through the firewall. Wipe your logs.</p>
+    <button onclick="startGame(false)">NEW GAME</button><button id="btn-cont" class="hidden" onclick="startGame(true)">CONTINUE</button>
+  </div></div>
+</div>
+<script src="js/data.js"></script>
+<script src="js/mail.js"></script>
+<script src="js/city.js"></script>
+<script src="js/deck.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
